@@ -2,13 +2,13 @@
 
 CXX=g++
 CXXFLAGS="-O3"
-LLVM_FLAGS=$(llvm-config --cxxflags --ldflags --system-libs --libs core)
+LLVM_FLAGS="`llvm-config --cxxflags --ldflags --system-libs --libs core`"
 
 SRC_DIR="src"
 
 OUTPUT_EXEC="passman"
 
-SOURCE_FILES=$(find "$SRC_DIR" -name "*.cpp" | sort)
+SOURCE_FILES=$(find "$SRC_DIR" -name "*.cpp")
 
 echo "Found sources:"
 echo "$SOURCE_FILES" | sed 's/^/  /'

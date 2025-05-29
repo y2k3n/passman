@@ -27,7 +27,12 @@ public:
 };
 
 class ConcurrentFuncs : public Scheduler {
+private:
+  unsigned nthreads;
+
 public:
+  ConcurrentFuncs() : nthreads(4) {}
+  explicit ConcurrentFuncs(unsigned num_threads) : nthreads(num_threads) {}
   void run(const std::vector<std::shared_ptr<FuncPass>> &passes,
            llvm::Module &module) override;
 };

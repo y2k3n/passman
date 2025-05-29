@@ -20,6 +20,8 @@ struct LocalData {
   std::unordered_map<Value *, std::set<Value *>> pt;
   std::queue<std::pair<Value *, std::set<Value *>>> worklist;
   std::unordered_map<Value *, std::set<Value *>> PFG;
+
+  ~LocalData() {}
 };
 
 void addEdge(Value *s, Value *t, LocalData &localdata) {
