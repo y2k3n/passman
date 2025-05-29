@@ -69,7 +69,6 @@ struct FuncInfo {
   bool operator<(const FuncInfo &rhs) const { return size < rhs.size; }
 };
 
-#define PRINT_STATS
 void funcThread(std::vector<std::shared_ptr<FuncPass>> passes,
                 std::mutex &Qmutex, std::priority_queue<FuncInfo> &funcQ,
                 int tid) {
@@ -78,10 +77,6 @@ void funcThread(std::vector<std::shared_ptr<FuncPass>> passes,
   int max_time = 0;
   int max_size = 0;
   int task_count = 0;
-  // int total_size = 0;
-  // int total_size_sq = 0;
-  // int total_time = 0;
-  // int total_time_sq = 0;
 #endif
 
   while (true) {
@@ -115,10 +110,6 @@ void funcThread(std::vector<std::shared_ptr<FuncPass>> passes,
       max_size = size;
     }
     task_count++;
-    // total_size += size;
-    // total_size_sq += size * size;
-    // total_time += time;
-    // total_time_sq += time * time;
 #endif
   }
 
@@ -127,25 +118,12 @@ void funcThread(std::vector<std::shared_ptr<FuncPass>> passes,
   auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
-  // double mean_size = (task_count > 0) ? total_size / task_count : 0;
-  // double var_size = (task_count > 0)
-  //                       ? (total_size_sq / task_count) - (mean_size * mean_size)
-  //                       : -(mean_size * mean_size);
-  // double mean_time = (task_count > 0) ? total_time / task_count : 0;
-  // double var_time = (task_count > 0)
-  //                       ? (total_time_sq / task_count) - (mean_time * mean_time)
-  //                       : -(mean_time * mean_time);
-
   {
     std::lock_guard<std::mutex> lock(outsmtx);
     outs() << "\tThread " << tid << "\ttime:\t" << duration.count() << " ms\n";
     outs() << "\t\tMax task time :\t " << max_time << " ms with\t " << max_size
            << " BBs\n";
     outs() << "\t\tTasks processed:\t" << task_count << "\n";
-    // outs() << "\t\tTask size mean:\t" << mean_size << ", var:\t" << var_size
-    //        << ", std dev:\t" << std::sqrt(var_size) << "\n";
-    // outs() << "\t\tTask time mean:\t" << mean_time << ", var:\t" << var_time
-    //        << ", std dev:\t" << std::sqrt(var_time) << "\n";
   }
 #endif
 }
@@ -165,6 +143,99 @@ void ConcurrentFuncs::run(const std::vector<std::shared_ptr<FuncPass>> &passes,
   threads.reserve(nthreads);
   for (int i = 0; i < nthreads; ++i) {
     threads.emplace_back(funcThread, passes, std::ref(Qmutex), std::ref(funcQ),
+                         i);
+  }
+  for (auto &t : threads) {
+    t.join();
+  }
+}
+
+
+
+struct TaskInfo {
+  std::shared_ptr<FuncPass> pass;
+  Function *func;
+  size_t size;
+  int index;
+
+  bool operator<(const TaskInfo &rhs) const { return size < rhs.size; }
+};
+
+void taskThread(std::mutex &Qmutex, std::priority_queue<TaskInfo> &taskQ,
+                int tid) {
+#ifdef PRINT_STATS
+  auto start = std::chrono::high_resolution_clock::now();
+  int max_time = 0;
+  int max_size = 0;
+  int task_count = 0;
+#endif
+
+  while (true) {
+    int index;
+    Function *func;
+    std::shared_ptr<FuncPass> pass;
+    int size;
+    {
+      std::lock_guard<std::mutex> lock(Qmutex);
+      if (taskQ.empty())
+        break;
+      index = taskQ.top().index;
+      func = taskQ.top().func;
+      pass = taskQ.top().pass;
+      size = taskQ.top().size;
+      taskQ.pop();
+    }
+#ifdef PRINT_STATS
+    auto sub_start = std::chrono::high_resolution_clock::now();
+#endif
+
+    pass->run(*func);
+
+#ifdef PRINT_STATS
+    auto sub_end = std::chrono::high_resolution_clock::now();
+    auto sub_duration = std::chrono::duration_cast<std::chrono::microseconds>(
+        sub_end - sub_start);
+    int time = sub_duration.count();
+    if (time > max_time) {
+      max_time = time;
+      max_size = size;
+    }
+    task_count++;
+#endif
+  }
+
+#ifdef PRINT_STATS
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+  {
+    std::lock_guard<std::mutex> lock(outsmtx);
+    outs() << "\tThread " << tid << "\ttime:\t" << duration.count() << " ms\n";
+    outs() << "\t\tMax task time :\t " << max_time << " ms with\t " << max_size
+           << " BBs\n";
+    outs() << "\t\tTasks processed:\t" << task_count << "\n";
+  }
+#endif
+}
+
+void ConcurrentTasks::run(const std::vector<std::shared_ptr<FuncPass>> &passes,
+                          Module &module) {
+  std::priority_queue<TaskInfo> taskQ;
+
+  for (auto [i, func] : enumerate(module)) {
+    for (auto pass : passes) {
+      if (func.isDeclaration())
+        continue;
+      taskQ.push({pass, &func, func.size(), (int)i});
+    }
+  }
+
+  std::mutex Qmutex;
+  std::vector<std::thread> threads;
+  threads.reserve(nthreads);
+  for (int i = 0; i < nthreads; ++i) {
+    threads.emplace_back(taskThread, std::ref(Qmutex), std::ref(taskQ),
                          i);
   }
   for (auto &t : threads) {

@@ -36,3 +36,14 @@ public:
   void run(const std::vector<std::shared_ptr<FuncPass>> &passes,
            llvm::Module &module) override;
 };
+
+class ConcurrentTasks : public Scheduler {
+private:
+  unsigned nthreads;
+
+public:
+  ConcurrentTasks() : nthreads(4) {}
+  explicit ConcurrentTasks(unsigned num_threads) : nthreads(num_threads) {}
+  void run(const std::vector<std::shared_ptr<FuncPass>> &passes,
+           llvm::Module &module) override;
+};

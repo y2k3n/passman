@@ -3,6 +3,7 @@
 CXX=g++
 CXXFLAGS="-O3"
 LLVM_FLAGS="`llvm-config --cxxflags --ldflags --system-libs --libs core`"
+CUSTOM_FLAGS="-DPRINT_STATS"
 
 SRC_DIR="src"
 
@@ -14,9 +15,9 @@ echo "Found sources:"
 echo "$SOURCE_FILES" | sed 's/^/  /'
 echo ""
 
-echo "$CXX $CXXFLAGS $SOURCE_FILES $LLVM_FLAGS -o $OUTPUT_EXEC"
+echo "$CXX $CXXFLAGS $CUSTOM_FLAGS $SOURCE_FILES $LLVM_FLAGS -o $OUTPUT_EXEC"
 
-$CXX $CXXFLAGS $SOURCE_FILES $LLVM_FLAGS -o $OUTPUT_EXEC
+$CXX $CXXFLAGS $CUSTOM_FLAGS $SOURCE_FILES $LLVM_FLAGS -o $OUTPUT_EXEC
 
 if [ $? -eq 0 ]; then
     echo ""

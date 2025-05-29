@@ -78,4 +78,12 @@ int main(int argc, char *argv[]) {
   end = std::chrono::high_resolution_clock::now();
   duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
   outs() << "Analysis time: " << duration.count() << " us\n";
+
+  ConcurrentTasks concurrentTasks;
+  outs() << "Tasks concurrently: " << module->getModuleIdentifier() << "\n";
+  start = std::chrono::high_resolution_clock::now();
+  concurrentTasks.run(passman.getPasses(), *module);
+  end = std::chrono::high_resolution_clock::now();
+  duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+  outs() << "Analysis time: " << duration.count() << " us\n";
 }
