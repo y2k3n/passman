@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -14,6 +15,32 @@
 using namespace llvm;
 
 std::mutex outsmtx;
+
+void TaskTimer::run(const std::vector<std::shared_ptr<FuncPass>> &passes,
+                    Module &module) {
+  std::string csvname = "tasktime.csv";
+  std::ofstream csv(csvname);
+  csv << "name,size";
+  for (auto pass : passes) {
+    csv << "," << pass->name();
+  }
+  csv << "\n";
+
+  for (auto &func : module) {
+    if (func.isDeclaration())
+      continue;
+    csv << func.getName().str() << "," << func.size();
+    for (auto pass : passes) {
+      auto start = std::chrono::high_resolution_clock::now();
+      pass->run(func);
+      auto end = std::chrono::high_resolution_clock::now();
+      auto duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+      csv << "," << duration.count();
+    }
+    csv << "\n";
+  }
+}
 
 void Sequential::run(const std::vector<std::shared_ptr<FuncPass>> &passes,
                      Module &module) {

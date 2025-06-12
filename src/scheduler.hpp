@@ -14,6 +14,12 @@ public:
                    llvm::Module &module) = 0;
 };
 
+class TaskTimer : public Scheduler {
+public:
+  void run(const std::vector<std::shared_ptr<FuncPass>> &passes,
+           llvm::Module &module) override;
+};
+
 class Sequential : public Scheduler {
 public:
   void run(const std::vector<std::shared_ptr<FuncPass>> &passes,
