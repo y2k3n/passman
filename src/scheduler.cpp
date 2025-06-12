@@ -88,6 +88,7 @@ void ConcurrentPasses::run(const std::vector<std::shared_ptr<FuncPass>> &passes,
   }
 }
 
+
 struct FuncInfo {
   Function *func;
   size_t size;
@@ -147,8 +148,8 @@ void funcThread(std::vector<std::shared_ptr<FuncPass>> passes,
 
   {
     std::lock_guard<std::mutex> lock(outsmtx);
-    outs() << "\tThread " << tid << "\ttime:\t" << duration.count() << " ms\n";
-    outs() << "\t\tMax task time :\t " << max_time << " ms with\t " << max_size
+    outs() << "\tThread " << tid << "\ttime:\t" << duration.count() << " us\n";
+    outs() << "\t\tMax task time :\t " << max_time << " us with\t " << max_size
            << " BBs\n";
     outs() << "\t\tTasks processed:\t" << task_count << "\n";
   }
@@ -176,8 +177,6 @@ void ConcurrentFuncs::run(const std::vector<std::shared_ptr<FuncPass>> &passes,
     t.join();
   }
 }
-
-
 
 struct TaskInfo {
   std::shared_ptr<FuncPass> pass;
@@ -238,8 +237,8 @@ void taskThread(std::mutex &Qmutex, std::priority_queue<TaskInfo> &taskQ,
 
   {
     std::lock_guard<std::mutex> lock(outsmtx);
-    outs() << "\tThread " << tid << "\ttime:\t" << duration.count() << " ms\n";
-    outs() << "\t\tMax task time :\t " << max_time << " ms with\t " << max_size
+    outs() << "\tThread " << tid << "\ttime:\t" << duration.count() << " us\n";
+    outs() << "\t\tMax task time :\t " << max_time << " us with\t " << max_size
            << " BBs\n";
     outs() << "\t\tTasks processed:\t" << task_count << "\n";
   }
@@ -268,4 +267,111 @@ void ConcurrentTasks::run(const std::vector<std::shared_ptr<FuncPass>> &passes,
   for (auto &t : threads) {
     t.join();
   }
+}
+
+
+
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/IRReader/IRReader.h"
+
+struct TaskMInfo {
+  std::shared_ptr<FuncPass> pass;
+  int func_idx;
+  size_t size;
+  int index;
+
+  bool operator<(const TaskInfo &rhs) const { return size < rhs.size; }
+};
+
+void taskMThread(std::mutex &Qmutex, std::priority_queue<TaskInfo> &taskQ,
+                int tid) {
+#ifdef PRINT_STATS
+  auto start = std::chrono::high_resolution_clock::now();
+  int max_time = 0;
+  int max_size = 0;
+  int task_count = 0;
+#endif
+
+  while (true) {
+    int index;
+    Function *func;
+    std::shared_ptr<FuncPass> pass;
+    int size;
+    {
+      std::lock_guard<std::mutex> lock(Qmutex);
+      if (taskQ.empty())
+        break;
+      index = taskQ.top().index;
+      func = taskQ.top().func;
+      pass = taskQ.top().pass;
+      size = taskQ.top().size;
+      taskQ.pop();
+    }
+#ifdef PRINT_STATS
+    auto sub_start = std::chrono::high_resolution_clock::now();
+#endif
+
+    pass->run(*func);
+
+#ifdef PRINT_STATS
+    auto sub_end = std::chrono::high_resolution_clock::now();
+    auto sub_duration = std::chrono::duration_cast<std::chrono::microseconds>(
+        sub_end - sub_start);
+    int time = sub_duration.count();
+    if (time > max_time) {
+      max_time = time;
+      max_size = size;
+    }
+    task_count++;
+#endif
+  }
+
+#ifdef PRINT_STATS
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+  {
+    std::lock_guard<std::mutex> lock(outsmtx);
+    outs() << "\tThread " << tid << "\ttime:\t" << duration.count() << " us\n";
+    outs() << "\t\tMax task time :\t " << max_time << " us with\t " << max_size
+           << " BBs\n";
+    outs() << "\t\tTasks processed:\t" << task_count << "\n";
+  }
+#endif
+}
+
+void ConcurrentModules::runOnFile(
+    const std::vector<std::shared_ptr<FuncPass>> &passes,
+    const std::string &filename) {
+  
+    std::priority_queue<TaskInfo> taskQ;
+
+  // for (auto [i, func] : enumerate(module)) {
+  //   for (auto pass : passes) {
+  //     if (func.isDeclaration())
+  //       continue;
+  //     taskQ.push({pass, &func, func.size(), (int)i});
+  //   }
+  // }
+
+  // std::mutex Qmutex;
+  // std::vector<std::thread> threads;
+  // threads.reserve(nthreads);
+  // for (int i = 0; i < nthreads; ++i) {
+  //   threads.emplace_back(taskThread, std::ref(Qmutex), std::ref(taskQ),
+  //                        i);
+  // }
+  // for (auto &t : threads) {
+  //   t.join();
+  // }
+
+  // int nthreads = passes.size();
+  // std::vector<std::thread> threads;
+  // for (auto pass : passes) {
+  //   threads.emplace_back(passMThread, pass, std::ref(filename));
+  // }
+  // for (auto &t : threads) {
+  //   t.join();
+  // }
 }

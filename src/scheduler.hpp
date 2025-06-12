@@ -4,6 +4,7 @@
 
 #include "llvm/IR/Module.h"
 
+#include <cassert>
 #include <memory>
 #include <vector>
 
@@ -24,6 +25,21 @@ class Sequential : public Scheduler {
 public:
   void run(const std::vector<std::shared_ptr<FuncPass>> &passes,
            llvm::Module &module) override;
+};
+
+class ConcurrentModules : public Scheduler {
+private:
+  unsigned nthreads;
+
+public:
+  ConcurrentModules() : nthreads(4) {}
+  explicit ConcurrentModules(unsigned num_threads) : nthreads(num_threads) {}
+  void run(const std::vector<std::shared_ptr<FuncPass>> &passes,
+           llvm::Module &module) {
+    exit(1);
+  }
+  void runOnFile(const std::vector<std::shared_ptr<FuncPass>> &passes,
+                 const std::string &filename);
 };
 
 class ConcurrentPasses : public Scheduler {

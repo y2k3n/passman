@@ -52,23 +52,23 @@ int main(int argc, char *argv[]) {
       std::make_shared<Slicing>(),
   });
 
-  TaskTimer tt;
-  outs() << "Task timer: " << module->getModuleIdentifier() << "\n";
-  auto start = std::chrono::high_resolution_clock::now();
-  tt.run(passman.getPasses(), *module);
-  auto end = std::chrono::high_resolution_clock::now();
-  auto duration =
-      std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-  outs() << "Analysis time: " << duration.count() << " us\n";
-
-  // Sequential sequential;
-  // outs() << "Sequential: " << module->getModuleIdentifier() << "\n";
+  // TaskTimer tt;
+  // outs() << "Task timer: " << module->getModuleIdentifier() << "\n";
   // auto start = std::chrono::high_resolution_clock::now();
-  // sequential.run(passman.getPasses(), *module);
+  // tt.run(passman.getPasses(), *module);
   // auto end = std::chrono::high_resolution_clock::now();
   // auto duration =
   //     std::chrono::duration_cast<std::chrono::microseconds>(end - start);
   // outs() << "Analysis time: " << duration.count() << " us\n";
+
+  Sequential sequential;
+  outs() << "Sequential: " << module->getModuleIdentifier() << "\n";
+  auto start = std::chrono::high_resolution_clock::now();
+  sequential.run(passman.getPasses(), *module);
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+  outs() << "Analysis time: " << duration.count() << " us\n";
 
   // ConcurrentPasses concurrentPasses;
   // outs() << "Passes concurrently: " << module->getModuleIdentifier()
@@ -95,4 +95,25 @@ int main(int argc, char *argv[]) {
   // end = std::chrono::high_resolution_clock::now();
   // duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
   // outs() << "Analysis time: " << duration.count() << " us\n";
+
+  for (int t = 1; t <= 16; ++t) {
+    ConcurrentTasks concurrentTasks_t(t);
+    outs() << "Tasks concurrently, t=" << t << ": "
+           << module->getModuleIdentifier() << "\n";
+    start = std::chrono::high_resolution_clock::now();
+    concurrentTasks_t.run(passman.getPasses(), *module);
+    end = std::chrono::high_resolution_clock::now();
+    duration =
+        std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    outs() << "Analysis time: " << duration.count() << " us\n";
+  }
+
+  // ConcurrentModules concurrentModules;
+  // outs() << "Modules concurrently: " << module->getModuleIdentifier() << "\n";
+  // start = std::chrono::high_resolution_clock::now();
+  // concurrentModules.runOnFile(passman.getPasses(), filename);
+  // end = std::chrono::high_resolution_clock::now();
+  // duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+  // outs() << "Analysis time: " << duration.count() << " us\n";
+
 }
